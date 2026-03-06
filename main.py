@@ -109,7 +109,42 @@ def main():
                 except Exception:
                     pass
 
+                # Append to alert history JSON for dashboard feed
+                try:
+                    history_path = os.path.join("logs", "alert_history.json")
+                    history = []
+                    if os.path.exists(history_path):
+                        with open(history_path, "r", encoding="utf-8") as hf:
+                            history = json.load(hf)
+                    for fa in frame_alerts:
+                        history.append({
+                            "timestamp": datetime.datetime.now().isoformat(sep=" ", timespec="seconds"),
+                            "alert": fa,
+                            "person_count": len(detections),
+                            "image": alert_path if 'alert_path' in locals() else "",
+                        })
+                    # Keep only the last 50 entries
+                    history = history[-50:]
+                    with open(history_path, "w", encoding="utf-8") as hf:
+                        json.dump(history, hf)
+                except Exception:
+                    pass
+
             cv2.imshow("Intrusion Detection System - press 'q' to quit", annotated)
+
+            # Always update state for dashboard (even when no alerts)
+            try:
+                state = {
+                    "timestamp": datetime.datetime.now().isoformat(sep=" ", timespec="seconds"),
+                    "person_count": len(detections),
+                    "alerts": frame_alerts,
+                    "last_alert_image": "",
+                }
+                with open(os.path.join("logs", "state.json"), "w", encoding="utf-8") as sf:
+                    json.dump(state, sf)
+            except Exception:
+                pass
+
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
     except KeyboardInterrupt:
