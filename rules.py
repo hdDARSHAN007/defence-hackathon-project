@@ -5,9 +5,10 @@ import numpy as np
 
 
 class RuleEngine:
-    """Simple rules engine for person-based alerts.
+    """Rules engine for person-based alerts.
 
     Rules implemented:
+      - unauthorized face detected -> INTRUDER alert (highest priority)
       - person_count > 1 -> suspicious activity
       - person in restricted area -> restricted-area alert
       - person stays > `stay_seconds` -> loitering alert
@@ -35,13 +36,17 @@ class RuleEngine:
         return math.hypot(a[0] - b[0], a[1] - b[1])
 
     # ----------------------- public API -------------------------------
-    def update(self, detections, frame, timestamp=None):
-        """Update engine state with the latest detections and frame.
+    def update(self, detections, frame, timestamp=None, face_results=None, object_detections=None):
+        """Update engine state with the latest detections, frame, face results, and object detections.
 
         Returns a list of alert strings (may be empty).
         """
         if timestamp is None:
             timestamp = time.time()
+        if face_results is None:
+            face_results = []
+        if object_detections is None:
+            object_detections = []
 
         h, w = frame.shape[:2]
         if not self.initialized:
@@ -50,6 +55,23 @@ class RuleEngine:
             self.initialized = True
 
         alerts = []
+
+        # Rule: WEAPON / DANGEROUS OBJECT DETECTED (highest priority)
+        high_threats = [o for o in object_detections if o["threat_level"] == "HIGH"]
+        medium_threats = [o for o in object_detections if o["threat_level"] == "MEDIUM"]
+        for obj in high_threats:
+            x1, y1, x2, y2 = obj["bbox"]
+            cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+            alerts.append(f"WEAPON DETECTED: {obj['class_name']} at ({cx},{cy}) [{obj['confidence']:.0%}]")
+        for obj in medium_threats:
+            alerts.append(f"Suspicious object: {obj['class_name']} detected [{obj['confidence']:.0%}]")
+
+        # Rule: UNAUTHORIZED FACE DETECTED (highest priority)
+        unauthorized = [f for f in face_results if not f["authorized"]]
+        for face in unauthorized:
+            x1, y1, x2, y2 = face["face_bbox"]
+            cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+            alerts.append(f"INTRUDER: Unauthorized person detected at ({cx},{cy})")
 
         # Rule: person count > 1
         if len(detections) > 1:

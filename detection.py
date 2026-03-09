@@ -16,11 +16,30 @@ from video_capture import VideoCapture
 # YOLO class ID for "person" in the COCO dataset
 PERSON_CLASS_ID = 0
 
+# Suspicious / dangerous object class IDs from COCO dataset
+# Maps class_id -> (display_name, threat_level)
+THREAT_OBJECTS = {
+    43: ("Knife",     "HIGH"),
+    76: ("Scissors",  "HIGH"),
+    28: ("Suitcase",  "MEDIUM"),
+    24: ("Backpack",  "MEDIUM"),
+    26: ("Handbag",   "LOW"),
+    39: ("Bottle",    "LOW"),
+    67: ("Cell Phone", "LOW"),
+}
+
 # Bounding box styling
 BOX_COLOR = (0, 0, 255)       # red in BGR
 BOX_THICKNESS = 2
 LABEL_COLOR = (255, 255, 255) # white text
 LABEL_BG = (0, 0, 255)        # red background for label
+
+# Object detection styling by threat level
+THREAT_COLORS = {
+    "HIGH":   (0, 0, 255),     # red
+    "MEDIUM": (0, 140, 255),   # orange
+    "LOW":    (0, 255, 255),   # yellow
+}
 
 
 def detect_persons(model: YOLO, frame):
@@ -58,6 +77,56 @@ def detect_persons(model: YOLO, frame):
             })
 
     return detections
+
+
+def detect_objects(model: YOLO, frame, conf_threshold=0.4):
+    """
+    Detect suspicious/dangerous objects using YOLOv8 COCO classes.
+
+    Returns list of dicts with: bbox, confidence, class_name, threat_level
+    """
+    results = model(frame, verbose=False)
+    objects = []
+
+    for result in results:
+        for box in result.boxes:
+            cls_id = int(box.cls[0])
+            if cls_id not in THREAT_OBJECTS:
+                continue
+
+            conf = float(box.conf[0])
+            if conf < conf_threshold:
+                continue
+
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            class_name, threat_level = THREAT_OBJECTS[cls_id]
+            objects.append({
+                "bbox": (x1, y1, x2, y2),
+                "confidence": conf,
+                "class_name": class_name,
+                "threat_level": threat_level,
+            })
+
+    return objects
+
+
+def draw_object_detections(frame, objects):
+    """Draw bounding boxes for detected threat objects."""
+    for obj in objects:
+        x1, y1, x2, y2 = obj["bbox"]
+        conf = obj["confidence"]
+        name = obj["class_name"]
+        threat = obj["threat_level"]
+        color = THREAT_COLORS.get(threat, (0, 255, 255))
+
+        label = f"{name} [{threat}] {conf:.0%}"
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 1)
+        cv2.rectangle(frame, (x1, y1 - th - 8), (x1 + tw + 4, y1), color, -1)
+        cv2.putText(frame, label, (x1 + 2, y1 - 4),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
+
+    return frame
 
 
 def draw_detections(frame, detections):
