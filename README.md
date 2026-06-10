@@ -107,8 +107,7 @@ Recall   : 0.8750
 F1 score : 0.8750
 
 Confusion Matrix [[TN, FP], [FN, TP]]
-[[11, 1],
- [1, 7]]
+[[11, 1], [1, 7]]
 ```
 
 This evaluation step can be run after collecting predictions from experiments or replay pipelines, and gives a standard quality snapshot for model behavior.
