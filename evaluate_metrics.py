@@ -57,7 +57,7 @@ def main():
     parser.add_argument("--input", required=True, help="Path to CSV containing ground truth and predictions")
     parser.add_argument("--true-col", default="y_true", help="Ground-truth column name")
     parser.add_argument("--pred-col", default="y_pred", help="Prediction column name")
-    parser.add_argument("--positive-label", default="1", help="Positive class label (default: '1')")
+    parser.add_argument("--positive-label", default="UNAUTHORIZED", help="Positive class label (default: 'UNAUTHORIZED')")
     parser.add_argument("--output-json", default="", help="Optional path to write metrics JSON")
     args = parser.parse_args()
 
